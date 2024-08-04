@@ -9,3 +9,8 @@ then go back to sa3d to
     sudo apt-get install ninja-build
     pip install mmcv einops 
     also install other necessary dependecise - check the requirements.txt all the version for packeages are correct threre- remmber do not reinstall torch, torch vision there
+
+    pip install imageio[ffmpeg] imageio[pyav]
+    pip install --upgrade transformers flask dash
+
+

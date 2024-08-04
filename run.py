@@ -582,21 +582,22 @@ def scene_rep_reconstruction(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, 
 
 
 def train(args, cfg, data_dict):
-
     # init
     print('train: start')
     eps_time = time.time()
-    os.makedirs(os.path.join(cfg.basedir, cfg.expname), exist_ok=True)
+    os.makedirs(os.path.join(cfg.basedir, cfg.expname), exist_ok=True) # create folder './logs/llff/fern'
     with open(os.path.join(cfg.basedir, cfg.expname, 'args.txt'), 'w') as file:
+        # lb to write the dict of args into ./logs/llff/fern/args.txt file
         for arg in sorted(vars(args)):
             attr = getattr(args, arg)
             file.write('{} = {}\n'.format(arg, attr))
+    # lb save content of config to logs/llff/fern/config.py
     cfg.dump(os.path.join(cfg.basedir, cfg.expname, 'config.py'))
 
     # coarse geometry searching (only works for inward bounded scenes)
     eps_coarse = time.time()
     xyz_min_coarse, xyz_max_coarse = compute_bbox_by_cam_frustrm(args=args, cfg=cfg, **data_dict)
-    if cfg.coarse_train.N_iters > 0:
+    if cfg.coarse_train.N_iters > 0: # not our case cos it  = 0
         scene_rep_reconstruction(
                 args=args, cfg=cfg,
                 cfg_model=cfg.coarse_model_and_render, cfg_train=cfg.coarse_train,
@@ -612,7 +613,7 @@ def train(args, cfg, data_dict):
 
     # fine detail reconstruction
     eps_fine = time.time()
-    if cfg.coarse_train.N_iters == 0:
+    if cfg.coarse_train.N_iters == 0: # our case
         xyz_min_fine, xyz_max_fine = xyz_min_coarse.clone(), xyz_max_coarse.clone()
     else:
         xyz_min_fine, xyz_max_fine = compute_bbox_by_coarse_geo(
@@ -649,10 +650,13 @@ if __name__=='__main__':
     seed_everything(args)
 
     # load images / poses / camera settings / data split
-    data_dict = load_everything(args=args, cfg=cfg)
+    data_dict = load_everything(args=args, cfg=cfg) # just to load config.data from  SA3D/configs/llff/seg/seg_fern.py
+    # basically datadir is now data/nerf_llff_data/fern
+
+    # data_dict now has the keys (['hwf', 'HW', 'Ks', 'near', 'far', 'near_clip', 'i_train', 'i_val', 'i_test', 'poses', 'render_poses', 'images', 'irregular_shape'])
 
     # export scene bbox and camera poses in 3d for debugging and visualization
-    if args.export_bbox_and_cams_only:
+    if args.export_bbox_and_cams_only: # not our case
         print('Export bbox and cameras...')
         xyz_min, xyz_max = compute_bbox_by_cam_frustrm(args=args, cfg=cfg, **data_dict)
         poses, HW, Ks, i_train = data_dict['poses'], data_dict['HW'], data_dict['Ks'], data_dict['i_train']
@@ -686,7 +690,7 @@ if __name__=='__main__':
 
 
     # train
-    if not args.render_only:
+    if not args.render_only: # our case
         train(args, cfg, data_dict)
 
 
