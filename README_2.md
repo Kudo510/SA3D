@@ -14,3 +14,8 @@ then go back to sa3d to
     pip install --upgrade transformers flask dash
 
 python run.py --config=configs/llff/fern.py --stop_at=20000 --render_video --i_weights=10000
+
+python run_seg_gui.py --config=configs/llff/seg/seg_fern.py --segment --sp_name=_gui --num_prompts=20 --render_opt=train --save_ckpt
+
+
+add os.environ['QT_QPA_PLATFORM'] = 'offscreen' to the main() so that we can debug the code

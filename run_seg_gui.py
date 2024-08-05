@@ -56,7 +56,7 @@ def train_seg(args, cfg, data_dict):
     else:
         print('Coarse segmentation has been completed, skip!')
 
-    # fine stage when the mask from the coarse stage is not good enough
+    # fine stage when the mask from the coarse stage is not good enough - 10*
     if args.use_fine_stage:
         eps_fine = time.time()
         if cfg.coarse_train.N_iters == 0:
@@ -82,6 +82,8 @@ def train_seg(args, cfg, data_dict):
 
 
 if __name__=='__main__':
+
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
     # load setup
     parser = config_parser()
     args = parser.parse_args()
@@ -99,7 +101,7 @@ if __name__=='__main__':
     data_dict = utils.load_everything(args=args, cfg=cfg)
 
     # train
-    if not args.render_only:
+    if not args.render_only: # our case
         train_seg(args, cfg, data_dict)
 
     # load model for further rendering

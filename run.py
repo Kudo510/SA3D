@@ -284,39 +284,57 @@ def compute_bbox_by_coarse_geo(model_class, model_path, thres):
     return xyz_min, xyz_max
 
 def create_new_model(cfg, cfg_model, cfg_train, xyz_min, xyz_max, stage, coarse_ckpt_path):
+    # Create a deep copy of the model configuration to avoid altering the original
     model_kwargs = copy.deepcopy(cfg_model)
+    
+    # Extract the number of voxels from the model configuration
     num_voxels = model_kwargs.pop('num_voxels')
+    
+    # Adjust the number of voxels based on the progressive scaling configuration
     if len(cfg_train.pg_scale):
-        num_voxels = int(num_voxels / (2**len(cfg_train.pg_scale)))
-
+        num_voxels = int(num_voxels / (2 ** len(cfg_train.pg_scale)))
+    
+    # If using normalized device coordinates (NDC)
     if cfg.data.ndc:
-        #print(f'scene_rep_reconstruction ({stage}): \033[96muse multiplane images\033[0m')
-        #model = dmpigo.DirectMPIGO(
-        #    xyz_min=xyz_min, xyz_max=xyz_max,
-        #    num_voxels=num_voxels,
-        #    **model_kwargs)
+        # Print debug information
         print(f'scene_rep_reconstruction ({stage}): \033[96muse dense voxel grid\033[0m')
+        # Initialize the DirectVoxGO model with the given parameters
         model = dvgo.DirectVoxGO(
             xyz_min=xyz_min, xyz_max=xyz_max,
             num_voxels=num_voxels,
             mask_cache_path=coarse_ckpt_path,
             **model_kwargs)
+    
+    # If using unbounded inward configuration
     elif cfg.data.unbounded_inward:
-        print(f'scene_rep_reconstruction ({stage}): \033[96muse contraced voxel grid (covering unbounded)\033[0m')
+        # Print debug information
+        print(f'scene_rep_reconstruction ({stage}): \033[96muse contracted voxel grid (covering unbounded)\033[0m')
+        # Initialize the DirectContractedVoxGO model with the given parameters
         model = dcvgo.DirectContractedVoxGO(
             xyz_min=xyz_min, xyz_max=xyz_max,
             num_voxels=num_voxels,
             **model_kwargs)
+    
+    # For all other cases
     else:
+        # Print debug information
         print(f'scene_rep_reconstruction ({stage}): \033[96muse dense voxel grid\033[0m')
+        # Initialize the DirectVoxGO model with the given parameters
         model = dvgo.DirectVoxGO(
             xyz_min=xyz_min, xyz_max=xyz_max,
             num_voxels=num_voxels,
             mask_cache_path=coarse_ckpt_path,
             **model_kwargs)
+    
+    # Move the model to the appropriate device (e.g., GPU)
     model = model.to(device)
+    
+    # Create an optimizer for the model or freeze the model parameters based on the training configuration
     optimizer = utils.create_optimizer_or_freeze_model(model, cfg_train, global_step=0)
+    
+    # Return the initialized model and optimizer
     return model, optimizer
+
 
 def load_existed_model(args, cfg, cfg_train, reload_ckpt_path, device):
     if cfg.data.ndc:
@@ -334,19 +352,23 @@ def load_existed_model(args, cfg, cfg_train, reload_ckpt_path, device):
 
 
 def scene_rep_reconstruction(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, stage, coarse_ckpt_path=None):
-    # init
+    # Initialize the device (GPU if available, otherwise CPU)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Adjust the bounding box if the world_bound_scale is different from 1
     if abs(cfg_model.world_bound_scale - 1) > 1e-9:
         xyz_shift = (xyz_max - xyz_min) * (cfg_model.world_bound_scale - 1) / 2
         xyz_min -= xyz_shift
         xyz_max += xyz_shift
+
+    # Extract necessary data from the data dictionary
     HW, Ks, near, far, i_train, i_val, i_test, poses, render_poses, images = [
         data_dict[k] for k in [
             'HW', 'Ks', 'near', 'far', 'i_train', 'i_val', 'i_test', 'poses', 'render_poses', 'images'
         ]
     ]
 
-    # find whether there is existing checkpoint path
+    # Determine the checkpoint path to reload, if any
     last_ckpt_path = os.path.join(cfg.basedir, cfg.expname, f'{stage}_last.tar')
     if args.no_reload:
         reload_ckpt_path = None
@@ -357,28 +379,31 @@ def scene_rep_reconstruction(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, 
     else:
         reload_ckpt_path = None
 
-    # init model and optimizer
+    # Initialize model and optimizer
     if reload_ckpt_path is None:
         print(f'scene_rep_reconstruction ({stage}): train from scratch')
         model, optimizer = create_new_model(cfg, cfg_model, cfg_train, xyz_min, xyz_max, stage, coarse_ckpt_path)
         start = 0
+        # Mask out voxels near the camera if specified in the configuration
         if cfg_model.maskout_near_cam_vox:
-            model.maskout_near_cam_vox(poses[i_train,:3,3], near)
+            model.maskout_near_cam_vox(poses[i_train, :3, 3], near)
     else:
         print(f'scene_rep_reconstruction ({stage}): reload from {reload_ckpt_path}')
         model, optimizer, start = load_existed_model(args, cfg, cfg_train, reload_ckpt_path, device)
 
+    # Freeze density parameters if specified
     if args.freeze_density:
         for param in model.named_parameters():
             if 'density' in param[0]:
                 param[1].requires_grad = False
 
+    # Freeze RGB network parameters if specified
     if args.freeze_rgb:
         for param in model.named_parameters():
             if 'rgbnet' in param[0] or ('f_k0' not in param[0] and 'k0' in param[0]):
                 param[1].requires_grad = False
 
-    # init rendering setup
+    # Initialize rendering setup parameters
     render_kwargs = {
         'near': data_dict['near'],
         'far': data_dict['far'],
@@ -626,8 +651,8 @@ def train(args, cfg, data_dict):
 
     # fine detail reconstruction
     eps_fine = time.time()
-    if cfg.coarse_train.N_iters == 0: # our case
-        xyz_min_fine, xyz_max_fine = xyz_min_coarse.clone(), xyz_max_coarse.clone()
+    if cfg.coarse_train.N_iters == 0: # our case for fine reconstruction
+        xyz_min_fine, xyz_max_fine = xyz_min_coarse.clone(), xyz_max_coarse.clone() # just set the xyz min max of fine = coarse
     else:
         xyz_min_fine, xyz_max_fine = compute_bbox_by_coarse_geo(
                 model_class=dvgo.DirectVoxGO, model_path=coarse_ckpt_path,

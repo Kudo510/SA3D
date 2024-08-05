@@ -62,48 +62,56 @@ class Sam3dGUI:
 
     def run_app(self, sam_pred, ctx, init_rgb):
         '''
-        run dash app
+        Run Dash app
         '''
         def query(points=None, text=None):
+            # Disable gradient calculations to speed up inference
             with torch.no_grad():
+                # Handle point-based prompts
                 if text is None:
                     input_point = points
-                    input_label = np.ones(len(input_point))
+                    input_label = np.ones(len(input_point))  # Create a label array with ones
+                    # Predict masks using SAM (Segment Anything Model) with point coordinates and labels
                     masks, scores, logits = sam_pred.predict(
                         point_coords=input_point,
                         point_labels=input_label,
                         multimask_output=True,
                     )
+                # Handle text-based prompts
                 elif points is None:
-                    input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
-                    boxes = torch.tensor(input_boxes)[0:1].cuda()
-                    transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
+                    input_boxes = grounding_dino_prompt(ctx['cur_img'], text)  # Generate bounding boxes from text
+                    boxes = torch.tensor(input_boxes)[0:1].cuda()  # Convert boxes to tensor and move to GPU
+                    transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])  # Transform boxes
+                    # Predict masks using SAM with transformed boxes
                     masks, scores, logits = sam_pred.predict_torch(
                         point_coords=None,
                         point_labels=None,
                         boxes=transformed_boxes,
                         multimask_output=True,
                     )
-                    masks = masks[0].cpu().numpy()
+                    masks = masks[0].cpu().numpy()  # Move masks to CPU and convert to numpy array
                 else:
+                    # Raise error if both points and text are provided (not implemented)
                     raise NotImplementedError
 
-            fig1 = (255*masks[0, :, :, None]*0.6 + ctx['cur_img']*0.4).astype(np.uint8)
-            fig2 = (255*masks[1, :, :, None]*0.6 + ctx['cur_img']*0.4).astype(np.uint8)
-            fig3 = (255*masks[2, :, :, None]*0.6 + ctx['cur_img']*0.4).astype(np.uint8)
-            fig1 = draw_figure(fig1, 'mask0')
-            fig2 = draw_figure(fig2, 'mask1')
-            fig3 = draw_figure(fig3, 'mask2')
+            # Create overlay images with masks for visualization
+            fig1 = (255 * masks[0, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
+            fig2 = (255 * masks[1, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
+            fig3 = (255 * masks[2, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
+            fig1 = draw_figure(fig1, 'mask0')  # Draw mask0 figure
+            fig2 = draw_figure(fig2, 'mask1')  # Draw mask1 figure
+            fig3 = draw_figure(fig3, 'mask2')  # Draw mask2 figure
 
+            # Mark points on the original image if text is not provided
             if text is None:
                 fig0 = mark_image(ctx['cur_img'], points)
             else:
                 fig0 = ctx['cur_img']
-            fig0 = draw_figure(fig0, 'original_image')
+            fig0 = draw_figure(fig0, 'original_image')  # Draw original image figure
 
-            return  masks, fig0, fig1, fig2, fig3
-        
-        # _, fig0, fig1, fig2, fig3, desc = query(np.array([[100, 100], [101, 101]]))
+            return masks, fig0, fig1, fig2, fig3
+
+        # Initialize context figures for the Dash app
         self.ctx['fig0'] = draw_figure(init_rgb, 'original_image')
         self.ctx['fig1'] = draw_figure(np.zeros_like(init_rgb), 'mask0')
         self.ctx['fig2'] = draw_figure(np.zeros_like(init_rgb), 'mask1')
@@ -112,70 +120,88 @@ class Sam3dGUI:
         self.ctx['fig_sam_mask'] = draw_figure(np.zeros_like(init_rgb), 'SAM Mask with Prompts in Training')
         self.ctx['fig_masked_rgb'] = draw_figure(np.zeros_like(init_rgb), 'Masked RGB')
         self.ctx['fig_seged_rgb'] = draw_figure(np.zeros_like(init_rgb), 'Seged RGB')
+
         
+        # Initialize the Dash app with meta tags for responsive design
         app = dash.Dash(
             __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
         )
+
+        # Define the layout of the app
         app.layout = html.Div(
-            style={"height": "100%"},
+            style={"height": "100%"},  # Set the height of the main container to 100%
             children=[
-            html.Div(className="container", children=[
-                html.Div(className="row", children=[
-                    html.Div(className="two columns",style={"padding-bottom": "5%"},children=[
-                        html.Div([html.H3(['SAM Init'])]),
-                        html.Br(),
+                html.Div(className="container", children=[
+                    html.Div(className="row", children=[
+                        
+                        # Left column for user inputs and controls
+                        html.Div(className="two columns", style={"padding-bottom": "5%"}, children=[
+                            html.Div([html.H3(['SAM Init'])]),  # Title
+                            html.Br(),  # Line break
 
-                        html.H5('Prompt Type:'),
-                        html.Div([
-                            dcc.Dropdown(
-                                id = 'prompt_type',
-                                options = [{'label': 'Points', 'value': 'point'}, 
-                                        {'label': 'Text', 'value': 'text'},],
-                                value = 'point'),
-                                html.Div(id = 'output-prompt_type')
+                            html.H5('Prompt Type:'),  # Subtitle
+                            html.Div([
+                                # Dropdown for selecting the prompt type
+                                dcc.Dropdown(
+                                    id='prompt_type',
+                                    options=[{'label': 'Points', 'value': 'point'}, 
+                                            {'label': 'Text', 'value': 'text'}],
+                                    value='point'
+                                ),
+                                html.Div(id='output-prompt_type')  # Output container for the selected prompt type
+                            ]),
+                            html.Br(),  # Line break
+
+                            html.H5('Point Prompts:'),  # Subtitle
+                            # Button to clear points
+                            html.Button('Clear Points', id='btn-nclicks-clear', n_clicks=0),
+                            html.Br(),  # Line break
+
+                            html.H5('Text Prompt:'),  # Subtitle
+                            html.Div([
+                                # Input field for text prompts
+                                dcc.Input(id='input-text-state', type='text', value='none'),
+                                # Button to generate text prompt
+                                html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
+                                html.Div(id='output-state-text')  # Output container for text prompt state
+                            ]),
+                            html.Br(),  # Line break
+
+                            html.H5('Please select the mask:'),  # Subtitle
+                            html.Div([
+                                # Radio items for selecting the mask
+                                dcc.RadioItems(['mask0', 'mask1', 'mask2'], id='sel_mask_id', value=None)
+                            ], style={'display': 'flex'}),
+                            html.Br(),  # Line break
+
+                            html.H5(id='container-sel-mask'),  # Container for displaying selected mask information
                         ]),
-                        html.Br(),
 
-                        html.H5('Point Prompts:'),
-                        html.Button('Clear Points', id='btn-nclicks-clear', n_clicks=0),
-                        html.Br(),
+                        # Right column for displaying graphs
+                        html.Div(className="ten columns", children=[
+                            html.Div(children=[
+                                # Main image graph
+                                dcc.Graph(id='main_image', figure=self.ctx['fig0'])
+                            ], style={'display': 'inline-block', 'width': '40%'}),
 
-                        html.H5('Text Prompt:'),
-                        html.Div([
-                            dcc.Input(id='input-text-state', type='text', value='none'),
-                            html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
-                            html.Div(id='output-state-text')
-                        ]),
-                        html.Br(),
+                            html.Div(children=[
+                                # Mask 0 graph
+                                dcc.Graph(id='mask0', figure=self.ctx['fig1'])
+                            ], style={'display': 'inline-block', 'width': '40%'}),
 
-                        html.H5('Please select the mask:'),
-                        html.Div([
-                            dcc.RadioItems(['mask0', 'mask1', 'mask2'], id='sel_mask_id', value=None)
-                        ], style={'display': 'flex'}),
-                        html.Br(),
+                            html.Div(children=[
+                                # Mask 1 graph
+                                dcc.Graph(id='mask1', figure=self.ctx['fig2'])
+                            ], style={'display': 'inline-block', 'width': '40%'}),
 
-                        html.H5(id='container-sel-mask'),
-                    ]),
-                    html.Div(className="ten columns",children=[
-                        html.Div(children=[
-                            dcc.Graph(id='main_image', figure=self.ctx['fig0'])
-                        ], style={'display': 'inline-block', 'width': '40%'}),
-
-                        html.Div(children=[
-                            dcc.Graph(id='mask0', figure=self.ctx['fig1'])
-                        ], style={'display': 'inline-block', 'width': '40%'}),
-
-                        html.Div(children=[
-                            dcc.Graph(id='mask1', figure=self.ctx['fig2'])
-                        ], style={'display': 'inline-block', 'width': '40%'}),
-
-                        html.Div(children=[
-                            dcc.Graph(id='mask2', figure=self.ctx['fig3'])
-                        ], style={'display': 'inline-block', 'width': '40%'}),
+                            html.Div(children=[
+                                # Mask 2 graph
+                                dcc.Graph(id='mask2', figure=self.ctx['fig3'])
+                            ], style={'display': 'inline-block', 'width': '40%'}),
+                        ])
                     ])
-                ])
-            ]),
-
+                ]),
+        
             html.Div(className="container", children=[
                 html.Div(className="row", children=[
                     html.Div(className="two columns",style={"padding-bottom": "5%"},children=[

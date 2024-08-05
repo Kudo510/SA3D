@@ -6,7 +6,9 @@ def config_parser():
     '''
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--config', required=True,
+    # parser.add_argument('--config', required=True,
+    #                     help='config file path')
+    parser.add_argument('--config', default="configs//llff//seg//seg_fern.py",
                         help='config file path')
     parser.add_argument("--seed", type=int, default=777,
                         help='Random seed')
@@ -23,7 +25,7 @@ def config_parser():
     # testing options
     parser.add_argument("--render_only", action='store_true',
                         help='do not optimize, reload weights and render out render_poses path')
-    parser.add_argument("--render_opt", default=None, type=str, 
+    parser.add_argument("--render_opt", default="train", type=str, 
                         choices=['train', 'test', 'video'], help='rendering mode')
 
     parser.add_argument("--render_video_flipy", action='store_true')
@@ -54,7 +56,9 @@ def config_parser():
                         help='train on weighted loss')
     parser.add_argument("--seg_mask", action='store_true',
                         help='generate segmentation mask')
-    parser.add_argument("--segment", action='store_true',
+    # parser.add_argument("--segment", action='store_false',
+    #                     help='interactively set threshold and re-render until stopped.')
+    parser.add_argument("--segment", action='store_false',
                         help='interactively set threshold and re-render until stopped.')
 
     parser.add_argument("--segment_everything", action='store_true',
@@ -65,7 +69,7 @@ def config_parser():
                         help='Get the camera poses of the training set as the trajectory.')
     
     # prompt options
-    parser.add_argument("--num_prompts", type=int, default=3, help='number of prompts')
+    parser.add_argument("--num_prompts", type=int, default=20, help='number of prompts')
     parser.add_argument("--num_epochs", type=int, default=1, help='number of training epochs')
     parser.add_argument("--lamb", type=float, default=1., help='the negative force in seg loss')
     parser.add_argument("--tau", type=float, default=0.5, help='the iou threshold')
@@ -87,7 +91,7 @@ def config_parser():
                         help='text discription of the prompt')
     
     # sp_name for instance
-    parser.add_argument("--sp_name", type=str, default=None, help="if None, use default, else use this as e_flag")
+    parser.add_argument("--sp_name", type=str, default="_gui", help="if None, use default, else use this as e_flag")
     # seg training
     parser.add_argument("--use_fine_stage", action='store_true',
                         help='fine stage can be used when IoU is low')
@@ -97,7 +101,9 @@ def config_parser():
     # seg testing
     parser.add_argument('--seg_type', nargs = '+', type=str, default=['seg_img', 'seg_density'],
                         help='segmentation type in inference')
-    parser.add_argument("--save_ckpt", action='store_true',
+    # parser.add_argument("--save_ckpt", action='store_false',
+    #                     help='save segmentation ckpt')
+    parser.add_argument("--save_ckpt", action='store_false',
                         help='save segmentation ckpt')
     parser.add_argument("--mobile_sam", action='store_true', help='Replace the original SAM encoder with MobileSAM to accelerate segmentation')
     return parser
