@@ -13,4 +13,4 @@ then go back to sa3d to
     pip install imageio[ffmpeg] imageio[pyav]
     pip install --upgrade transformers flask dash
 
-
+python run.py --config=configs/llff/fern.py --stop_at=20000 --render_video --i_weights=10000
