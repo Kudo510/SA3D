@@ -104,6 +104,8 @@ if __name__=='__main__':
     if not args.render_only: # our case
         train_seg(args, cfg, data_dict)
 
+
+    ## just ignore the one lb
     # load model for further rendering
     e_flag = args.sp_name if args.sp_name is not None else ''
     if args.render_opt is not None:

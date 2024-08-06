@@ -44,10 +44,10 @@ class Sam3D(ABC):
         self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint).to(device)
         self.predictor = SamPredictor(self.sam)
         print("SAM initializd.")
-        self.step_size = cfg.fine_model_and_render.stepsize
+        self.step_size = cfg.fine_model_and_render.stepsize # 0.5
         self.device = device
-        self.segment = args.segment
-        self.e_flag = args.sp_name if args.sp_name is not None else ''
+        self.segment = args.segment # True
+        self.e_flag = args.sp_name if args.sp_name is not None else '' # _gui
         self.base_save_dir = os.path.join(cfg.basedir, cfg.expname)
         # for interactive backend
         self.context = {'num_clicks': 0, 'click': []}

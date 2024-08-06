@@ -192,7 +192,7 @@ def load_checkpoint(model, optimizer, ckpt_path, no_reload_optimizer):
 
 
 def find_model(cfg):
-    if cfg.data.ndc:
+    if cfg.data.ndc: # our case
         model_class = dvgo.DirectVoxGO
     elif cfg.data.unbounded_inward:
         model_class = dcvgo.DirectContractedVoxGO

@@ -68,7 +68,7 @@ class Sam3dGUI:
             # Disable gradient calculations to speed up inference
             with torch.no_grad():
                 # Handle point-based prompts
-                if text is None:
+                if text is None: # means points is not None
                     input_point = points
                     input_label = np.ones(len(input_point))  # Create a label array with ones
                     # Predict masks using SAM (Segment Anything Model) with point coordinates and labels
@@ -81,7 +81,9 @@ class Sam3dGUI:
                 elif points is None:
                     input_boxes = grounding_dino_prompt(ctx['cur_img'], text)  # Generate bounding boxes from text
                     boxes = torch.tensor(input_boxes)[0:1].cuda()  # Convert boxes to tensor and move to GPU
-                    transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])  # Transform boxes
+                    transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])  # Transform boxes - get the
+                    # bboxes that has propotion same as the input image
+
                     # Predict masks using SAM with transformed boxes
                     masks, scores, logits = sam_pred.predict_torch(
                         point_coords=None,
@@ -94,7 +96,7 @@ class Sam3dGUI:
                     # Raise error if both points and text are provided (not implemented)
                     raise NotImplementedError
 
-            # Create overlay images with masks for visualization
+            # Create overlay images with masks for visualization- so is it like we have only 3 masks ? 
             fig1 = (255 * masks[0, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
             fig2 = (255 * masks[1, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
             fig3 = (255 * masks[2, :, :, None] * 0.6 + ctx['cur_img'] * 0.4).astype(np.uint8)
@@ -102,7 +104,7 @@ class Sam3dGUI:
             fig2 = draw_figure(fig2, 'mask1')  # Draw mask1 figure
             fig3 = draw_figure(fig3, 'mask2')  # Draw mask2 figure
 
-            # Mark points on the original image if text is not provided
+            # Mark points on the original image if text is not provided - just to mark the pointt -that's is
             if text is None:
                 fig0 = mark_image(ctx['cur_img'], points)
             else:
@@ -111,7 +113,7 @@ class Sam3dGUI:
 
             return masks, fig0, fig1, fig2, fig3
 
-        # Initialize context figures for the Dash app
+        # Initialize context figures for the Dash app - just draw figure in the Dash app
         self.ctx['fig0'] = draw_figure(init_rgb, 'original_image')
         self.ctx['fig1'] = draw_figure(np.zeros_like(init_rgb), 'mask0')
         self.ctx['fig2'] = draw_figure(np.zeros_like(init_rgb), 'mask1')
@@ -127,7 +129,7 @@ class Sam3dGUI:
             __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
         )
 
-        # Define the layout of the app
+        # Define the layout of the app - just for desing the app like doing front end - not coding from here
         app.layout = html.Div(
             style={"height": "100%"},  # Set the height of the main container to 100%
             children=[
